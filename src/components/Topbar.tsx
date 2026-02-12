@@ -21,8 +21,17 @@ export const Topbar = ({
   const [results, setResults] = useState<SymbolSearchItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<SymbolSearchItem[]>(() => {
+    const saved = localStorage.getItem("recent_searches");
+    return saved ? JSON.parse(saved) : [];
+  });
   const lastRequestId = useRef(0);
+
+  const saveToRecent = (item: SymbolSearchItem) => {
+    const updated = [item, ...recentSearches.filter((rs) => rs.symbol !== item.symbol)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem("recent_searches", JSON.stringify(updated));
+  };
 
   const trimmedQuery = useMemo(() => query.trim(), [query]);
 
@@ -56,6 +65,7 @@ export const Topbar = ({
   }, [trimmedQuery]);
 
   const choose = (item: SymbolSearchItem) => {
+    saveToRecent(item);
     onSymbolChange(item.symbol.toUpperCase());
     setQuery("");
     setOpen(false);
@@ -69,6 +79,7 @@ export const Topbar = ({
             className="w-full rounded-lg bg-slate-900/80 border border-slate-700/80 px-3 py-2 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/70 focus:border-cyan-500/70 transition-colors"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => recentSearches.length > 0 && setOpen(true)}
             placeholder="Search company (e.g. Apple) or symbol (AAPL)…"
             onKeyDown={(e) => {
               if (e.key === "Escape") {
@@ -100,44 +111,49 @@ export const Topbar = ({
             {loading ? "…" : "⌘K"}
           </span>
 
-          {open && results.length > 0 && (
-            <div className="absolute mt-2 w-full rounded-xl border border-cyan-500/20 bg-black/90 backdrop-blur-xl shadow-neon-cyan overflow-hidden z-30">
-              <div className="max-h-72 overflow-y-auto">
-                {results.map((r, idx) => {
-                  const active = idx === activeIndex;
-                  return (
-                    <button
-                      key={`${r.symbol}-${idx}`}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      onClick={() => choose(r)}
-                      className={`w-full text-left px-3 py-2 transition-colors ${
-                        active
-                          ? "bg-cyan-500/15"
-                          : "hover:bg-cyan-500/10"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-xs text-slate-100 truncate">
-                            {r.description}
+            {open && (results.length > 0 || (!trimmedQuery && recentSearches.length > 0)) && (
+              <div className="absolute mt-2 w-full rounded-xl border border-cyan-500/20 bg-black/90 backdrop-blur-xl shadow-neon-cyan overflow-hidden z-30">
+                <div className="max-h-72 overflow-y-auto">
+                  {!trimmedQuery && recentSearches.length > 0 && (
+                    <div className="px-3 py-2 text-[10px] font-semibold text-slate-500 bg-slate-800/20 uppercase tracking-wider">
+                      Recent Searches
+                    </div>
+                  )}
+                  {(trimmedQuery ? results : recentSearches).map((r, idx) => {
+                    const active = idx === activeIndex;
+                    return (
+                      <button
+                        key={`${r.symbol}-${idx}`}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => choose(r)}
+                        className={`w-full text-left px-3 py-2 transition-colors ${
+                          active
+                            ? "bg-cyan-500/15"
+                            : "hover:bg-cyan-500/10"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs text-slate-100 truncate">
+                              {r.description}
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate">
+                              {r.type ?? "—"}
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            {r.type ?? "—"}
+                          <div className="text-[11px] font-mono text-cyan-300">
+                            {r.symbol}
                           </div>
                         </div>
-                        <div className="text-[11px] font-mono text-cyan-300">
-                          {r.symbol}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="px-3 py-2 text-[10px] text-slate-500 border-t border-slate-800/80">
+                  {trimmedQuery ? "Tip: press Enter to search." : "Your recent lookups are saved locally."}
+                </div>
               </div>
-              <div className="px-3 py-2 text-[10px] text-slate-500 border-t border-slate-800/80">
-                Tip: type a company name and press Enter.
-              </div>
-            </div>
-          )}
+            )}
         </div>
         <div className="flex items-center gap-2">
           <select
