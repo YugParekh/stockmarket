@@ -7,6 +7,7 @@ import { SentimentMomentum } from "../components/SentimentMomentum";
 import { PredictionPanel } from "../components/PredictionPanel";
 import { AlertsPanel } from "../components/AlertsPanel";
 import { WordCloud } from "../components/WordCloud";
+import { StockCard } from "../components/StockCard";
 import { AIInsightsPanel } from "../components/AIInsightsPanel";
 import { fetchDashboardData, type InsightsPayload, type UiRange } from "../api/dashboard";
 import type {
@@ -123,6 +124,57 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
 
       {insights && (
         <AIInsightsPanel symbol={symbol} insights={insights} loading={loading} />
+      )}
+
+      {(showAll || showOverview) && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+              Market At A Glance
+            </h2>
+            <button className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors uppercase font-medium">
+              View All Indices
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StockCard
+              symbol="S&P 500"
+              name="Market Index"
+              price={5123.42}
+              change={12.5}
+              changePercent={0.24}
+              volume="4.1B"
+              isPositive={true}
+            />
+            <StockCard
+              symbol="NASDAQ"
+              name="Tech Index"
+              price={16384.15}
+              change={-84.2}
+              changePercent={-0.51}
+              volume="2.8B"
+              isPositive={false}
+            />
+            <StockCard
+              symbol="AAPL"
+              name="Apple Inc."
+              price={192.25}
+              change={2.15}
+              changePercent={1.13}
+              volume="52M"
+              isPositive={true}
+            />
+            <StockCard
+              symbol="NVDA"
+              name="NVIDIA Corp."
+              price={875.32}
+              change={15.42}
+              changePercent={1.79}
+              volume="84M"
+              isPositive={true}
+            />
+          </div>
+        </section>
       )}
 
       {(showAll || showOverview || showSentiment || showPredictions) && (
