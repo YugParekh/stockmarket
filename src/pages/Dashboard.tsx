@@ -84,6 +84,24 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
   }, [symbol, range]);
 
   const latest = marketData[marketData.length - 1];
+  const [sortBy, setSortBy] = useState<"name" | "price" | "change">("name");
+
+  const topStocks = [
+    { symbol: "S&P 500", name: "Market Index", price: 5123.42, change: 12.5, changePercent: 0.24, volume: "4.1B", isPositive: true },
+    { symbol: "NASDAQ", name: "Tech Index", price: 16384.15, change: -84.2, changePercent: -0.51, volume: "2.8B", isPositive: false },
+    { symbol: "AAPL", name: "Apple Inc.", price: 192.25, change: 2.15, changePercent: 1.13, volume: "52M", isPositive: true },
+    { symbol: "NVDA", name: "NVIDIA Corp.", price: 875.32, change: 15.42, changePercent: 1.79, volume: "84M", isPositive: true },
+    { symbol: "MSFT", name: "Microsoft", price: 415.65, change: 3.21, changePercent: 0.78, volume: "22M", isPositive: true },
+    { symbol: "GOOGL", name: "Alphabet Inc.", price: 154.85, change: -1.45, changePercent: -0.93, volume: "18M", isPositive: false },
+    { symbol: "AMZN", name: "Amazon.com", price: 178.22, change: 0.95, changePercent: 0.54, volume: "31M", isPositive: true },
+    { symbol: "TSLA", name: "Tesla, Inc.", price: 175.45, change: -5.32, changePercent: -2.94, volume: "105M", isPositive: false },
+  ];
+
+  const sortedStocks = [...topStocks].sort((a, b) => {
+    if (sortBy === "price") return b.price - a.price;
+    if (sortBy === "change") return b.changePercent - a.changePercent;
+    return a.name.localeCompare(b.name);
+  }).slice(0, 4);
 
   const showAll = view === "Dashboard";
   const showOverview = view === "Market Overview";
@@ -132,47 +150,23 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
             <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
               Market At A Glance
             </h2>
-            <button className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors uppercase font-medium">
-              View All Indices
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 uppercase">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-transparent text-[10px] text-sky-400 font-medium uppercase focus:outline-none cursor-pointer"
+              >
+                <option value="name">Name</option>
+                <option value="price">Price</option>
+                <option value="change">Change</option>
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StockCard
-              symbol="S&P 500"
-              name="Market Index"
-              price={5123.42}
-              change={12.5}
-              changePercent={0.24}
-              volume="4.1B"
-              isPositive={true}
-            />
-            <StockCard
-              symbol="NASDAQ"
-              name="Tech Index"
-              price={16384.15}
-              change={-84.2}
-              changePercent={-0.51}
-              volume="2.8B"
-              isPositive={false}
-            />
-            <StockCard
-              symbol="AAPL"
-              name="Apple Inc."
-              price={192.25}
-              change={2.15}
-              changePercent={1.13}
-              volume="52M"
-              isPositive={true}
-            />
-            <StockCard
-              symbol="NVDA"
-              name="NVIDIA Corp."
-              price={875.32}
-              change={15.42}
-              changePercent={1.79}
-              volume="84M"
-              isPositive={true}
-            />
+            {sortedStocks.map((stock) => (
+              <StockCard key={stock.symbol} {...stock} />
+            ))}
           </div>
         </section>
       )}
