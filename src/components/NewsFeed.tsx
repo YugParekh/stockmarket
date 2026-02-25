@@ -1,3 +1,4 @@
+import type { NewsItem } from "../mockMarketData";
 import { NewsCard } from "./NewsCard";
 
 interface NewsFeedProps {
@@ -36,8 +37,6 @@ export const NewsFeed = ({ loading, items }: NewsFeedProps) => {
         ))}
       </div>
     </section>
-  );
-};
   );
 };
 
