@@ -7,23 +7,10 @@ import { SentimentMomentum } from "../components/SentimentMomentum";
 import { PredictionPanel } from "../components/PredictionPanel";
 import { AlertsPanel } from "../components/AlertsPanel";
 import { WordCloud } from "../components/WordCloud";
-import { StockCard } from "../components/StockCard";
+import { useMarketData } from "../hooks/useMarketData";
 import { AIInsightsPanel } from "../components/AIInsightsPanel";
-import { fetchDashboardData, type InsightsPayload, type UiRange } from "../api/dashboard";
-import type {
-  AlertItem,
-  KeywordStat,
-  MarketDataPoint,
-  NewsItem,
-  SentimentBucket
-} from "../mockMarketData";
-import {
-  alerts as mockAlerts,
-  keywordStats as mockKeywords,
-  mockMarketData,
-  newsFeed as mockNews,
-  sentimentDistribution as mockDistribution
-} from "../mockMarketData";
+import { type UiRange } from "../api/dashboard";
+import { StockCard } from "../components/StockCard";
 
 interface DashboardProps {
   symbol: string;
@@ -31,59 +18,18 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps & { view?: string }) => {
-  const [loading, setLoading] = useState(true);
-  const [marketData, setMarketData] = useState<MarketDataPoint[]>(mockMarketData);
-  const [news, setNews] = useState<NewsItem[]>(mockNews);
-  const [alerts, setAlerts] = useState<AlertItem[]>(mockAlerts);
-  const [keywords, setKeywords] = useState<KeywordStat[]>(mockKeywords);
-  const [distribution, setDistribution] =
-    useState<SentimentBucket[]>(mockDistribution);
-  const [insights, setInsights] = useState<InsightsPayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    loading,
+    marketData,
+    news,
+    alerts,
+    keywords,
+    distribution,
+    insights,
+    error,
+    latest
+  } = useMarketData(symbol, range);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load(firstLoad: boolean) {
-      if (firstLoad) {
-        setLoading(true);
-      }
-      try {
-        const data = await fetchDashboardData(symbol, range);
-        if (cancelled) return;
-        setMarketData(data.marketData);
-        setNews(data.news);
-        setAlerts(data.alerts);
-        setKeywords(data.keywords);
-        setDistribution(data.sentimentDistribution);
-        setInsights(data.insights);
-        setError(null);
-      } catch (e) {
-        if (cancelled) return;
-        console.error(e);
-        setError("Falling back to local mock dataset (backend unreachable).");
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    // initial load
-    void load(true);
-
-    // lightweight polling to keep graphs reasonably fresh
-    const interval = window.setInterval(() => {
-      void load(false);
-    }, 20_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [symbol, range]);
-
-  const latest = marketData[marketData.length - 1];
   const [sortBy, setSortBy] = useState<"name" | "price" | "change">("name");
 
   const topStocks = [
