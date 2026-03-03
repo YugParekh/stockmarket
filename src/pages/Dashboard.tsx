@@ -122,8 +122,8 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
       )}
 
       {(showAll || showOverview || showSentiment || showNews) && (
-        <section className="grid lg:grid-cols-3 gap-4 lg:gap-5">
-          <div className="lg:col-span-2 space-y-4">
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+          <div className="md:col-span-2 space-y-4 lg:space-y-6">
             {(showAll || showOverview) && (
               <PriceSentimentChart loading={loading} data={marketData} />
             )}
@@ -131,7 +131,7 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
               <SentimentMomentum loading={loading} data={marketData} />
             )}
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 lg:space-y-6">
             {(showAll || showOverview || showSentiment) && (
               <SentimentDonut loading={loading} data={distribution} />
             )}
@@ -147,9 +147,11 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
         showAlertsOnly ||
         showSentiment ||
         showNews) && (
-        <section className="grid lg:grid-cols-3 gap-4 lg:gap-5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {(showAll || showPredictions) && (
-            <PredictionPanel loading={loading} data={marketData} />
+            <div className="sm:col-span-2 lg:col-span-1">
+              <PredictionPanel loading={loading} data={marketData} />
+            </div>
           )}
           {(showAll || showAlertsOnly || showNews) && (
             <AlertsPanel loading={loading} items={alerts} />
