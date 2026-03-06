@@ -19,8 +19,8 @@ const impactColorClasses: Record<"Low" | "Medium" | "High", string> = {
 
 export const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
   return (
-    <article className="group flex flex-col gap-2 p-3 rounded-xl border border-slate-800 bg-slate-900/40 hover:bg-slate-800/60 hover:border-slate-700 transition-all duration-300 cursor-pointer">
-      <div className="flex justify-between items-start gap-3">
+    <article className="group flex flex-col gap-2 p-3.5 rounded-xl border border-slate-800/50 bg-slate-900/40 hover:bg-slate-800/60 hover:border-slate-700/80 hover:translate-x-1 transition-all duration-300 cursor-pointer border-l-2 border-l-transparent hover:border-l-cyan-500/50 shadow-sm hover:shadow-md">
+      <div className="flex justify-between items-start gap-4">
         <h3 className="text-xs font-medium text-slate-200 group-hover:text-white transition-colors leading-relaxed">
           {item.headline}
         </h3>

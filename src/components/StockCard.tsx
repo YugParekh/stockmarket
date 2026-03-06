@@ -21,8 +21,9 @@ export const StockCard: React.FC<StockCardProps> = ({
   isPositive,
 }) => {
   return (
-    <div className="glass-card p-4 flex flex-col gap-3 hover:border-slate-700 transition-all duration-300 group cursor-pointer">
-      <div className="flex justify-between items-start">
+    <div className="glass-card-soft p-4 flex flex-col gap-3 rounded-2xl border border-slate-800/50 hover:border-cyan-500/30 hover:shadow-[0_0_20px_-5px_rgba(34,211,238,0.2)] hover:scale-[1.01] transition-all duration-300 group cursor-pointer overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="flex justify-between items-start relative z-10">
         <div>
           <h3 className="font-bold text-slate-100 group-hover:text-sky-400 transition-colors">
             {symbol}
