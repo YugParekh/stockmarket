@@ -10,19 +10,35 @@
 
 @layer components {
   .glass-card {
-    @apply bg-black/40 border border-cyan-500/20 backdrop-blur-md rounded-xl;
+    @apply bg-black/50 border border-white/5 backdrop-blur-xl rounded-2xl;
+    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4);
   }
 
   .glass-card-soft {
-    @apply bg-slate-900/60 border border-slate-700/70 backdrop-blur-lg rounded-xl;
+    @apply bg-slate-900/40 border border-slate-800/60 backdrop-blur-2xl rounded-2xl;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
 
-  .kpi-glow {
-    box-shadow: 0 0 25px rgba(34, 211, 238, 0.35);
+  .shadow-neon-cyan {
+    box-shadow: 0 0 20px -5px rgba(34, 211, 238, 0.3);
   }
 
-  .alert-glow {
-    box-shadow: 0 0 25px rgba(248, 250, 252, 0.12);
+  .shadow-neon-emerald {
+    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+  }
+
+  .shadow-neon-rose {
+    box-shadow: 0 0 20px -5px rgba(244, 63, 94, 0.3);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
   }
 }
 
