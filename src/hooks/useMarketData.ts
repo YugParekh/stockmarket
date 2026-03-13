@@ -44,7 +44,6 @@ export const useMarketData = (symbol: string, range: UiRange) => {
         setError(null);
       } catch (e) {
         if (cancelled) return;
-        console.error("API Error - falling back to mocks", e);
         setError("Falling back to local mock dataset (backend unreachable).");
       } finally {
         if (!cancelled) {
