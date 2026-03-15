@@ -61,9 +61,20 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
     <div className="space-y-5 lg:space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-100">
-            AI Stock Market Sentiment
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-semibold text-slate-100">
+              AI Stock Market Sentiment
+            </h1>
+            <div className="group relative">
+              <button className="h-5 w-5 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-sky-300 hover:bg-slate-700 transition-all text-xs border border-slate-700">
+                ?
+              </button>
+              <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 z-50 text-[11px] leading-relaxed text-slate-400">
+                <p className="font-semibold text-sky-400 mb-1">How it works</p>
+                Our AI engine analyzes real-time price action, news sentiment from 50+ sources, and social momentum to provide a multi-layered market perspective.
+              </div>
+            </div>
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Multi-layer view of price action, news intelligence, and AI-driven
             sentiment analytics.
