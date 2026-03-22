@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0b0b0b] text-slate-100 antialiased;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-black/40 border border-cyan-500/20 backdrop-blur-md rounded-xl;
+  }
+
+  .glass-card-soft {
+    @apply bg-slate-900/60 border border-slate-700/70 backdrop-blur-lg rounded-xl;
+  }
+
+  .kpi-glow {
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.35);
+  }
+
+  .alert-glow {
+    box-shadow: 0 0 25px rgba(248, 250, 252, 0.12);
+  }
+}
+
