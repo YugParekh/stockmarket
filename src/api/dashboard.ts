@@ -39,7 +39,7 @@ export type UiRange = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y";
  * 🔥 BASE URL (PRODUCTION)
  * Change this if backend URL changes
  */
-const BASE_URL = "https://stockmarket-backend.onrender.com";
+const BASE_URL = "https://stockmarket-backend-sa4e.onrender.com";
 
 export async function fetchDashboardData(
   symbol: string,
