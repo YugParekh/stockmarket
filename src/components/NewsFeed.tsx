@@ -1,5 +1,7 @@
+import React, { useState } from "react";
 import type { NewsItem } from "../mockMarketData";
 import { NewsCard } from "./NewsCard";
+import { analyzeSentiment } from "../api/ai";
 
 interface NewsFeedProps {
   loading?: boolean;
@@ -7,6 +9,19 @@ interface NewsFeedProps {
 }
 
 export const NewsFeed = ({ loading, items }: NewsFeedProps) => {
+  const [aiSentimentMap, setAiSentimentMap] = useState<Record<number, string | null>>({});
+  const [scanningId, setScanningId] = useState<number | null>(null);
+
+  const handleScan = async (id: number, text: string) => {
+    setScanningId(id);
+    const result = await analyzeSentiment(text);
+    if (result) {
+      const mapped = result === "Bullish" ? "Positive" : result === "Bearish" ? "Negative" : "Neutral";
+      setAiSentimentMap(prev => ({ ...prev, [id]: mapped }));
+    }
+    setScanningId(null);
+  };
+
   if (loading) {
     return (
       <section className="glass-card-soft h-[400px] animate-pulse rounded-2xl" />
@@ -32,9 +47,31 @@ export const NewsFeed = ({ loading, items }: NewsFeedProps) => {
         </div>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-        {items.map((item) => (
-          <NewsCard key={item.id} item={item} />
-        ))}
+        {items.map((item) => {
+          const effectiveSentiment = aiSentimentMap[item.id] || item.sentiment;
+          const isScanning = scanningId === item.id;
+          const hasAI = !!aiSentimentMap[item.id];
+
+          return (
+            <div key={item.id} className="relative group/news">
+              <NewsCard item={{ ...item, sentiment: effectiveSentiment as any }} />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleScan(item.id, item.headline);
+                }}
+                disabled={isScanning || hasAI}
+                className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all shadow-sm ${
+                  hasAI 
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" 
+                    : "bg-slate-800/80 text-slate-500 border border-slate-700 group-hover/news:border-cyan-500/50 group-hover/news:text-cyan-400"
+                } ${isScanning ? "animate-pulse" : ""}`}
+              >
+                {isScanning ? "Scanning..." : hasAI ? "AI Verified" : "AI Scan"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

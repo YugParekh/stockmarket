@@ -11,6 +11,7 @@ import { useMarketData } from "../hooks/useMarketData";
 import { AIInsightsPanel } from "../components/AIInsightsPanel";
 import { type UiRange } from "../api/dashboard";
 import { StockCard } from "../components/StockCard";
+import { exportToCSV } from "../utils/exportCSV";
 
 interface DashboardProps {
   symbol: string;
@@ -80,14 +81,25 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
             sentiment analytics.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-400">
-          {latest && (
-            <span className="text-sky-300">
-              {symbol.toUpperCase()} • Last tick {latest.date}
-            </span>
-          )}
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Python models online</span>
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+            {latest && (
+              <span className="text-sky-300">
+                {symbol.toUpperCase()} • Last tick {latest.date}
+              </span>
+            )}
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Python models online</span>
+          </div>
+          <button
+            onClick={() => exportToCSV(symbol, marketData, news)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50 text-[10px] font-semibold text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 hover:bg-slate-700/80 transition-all shadow-lg active:scale-95"
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Dataset (.csv)
+          </button>
         </div>
       </header>
 
