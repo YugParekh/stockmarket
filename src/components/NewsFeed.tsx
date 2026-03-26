@@ -13,6 +13,7 @@ export const NewsFeed = ({ loading, items }: NewsFeedProps) => {
   const [scanningId, setScanningId] = useState<number | null>(null);
 
   const handleScan = async (id: number, text: string) => {
+    if (aiSentimentMap[id] || scanningId === id) return;
     setScanningId(id);
     const result = await analyzeSentiment(text);
     if (result) {
@@ -21,6 +22,19 @@ export const NewsFeed = ({ loading, items }: NewsFeedProps) => {
     }
     setScanningId(null);
   };
+
+  // Auto-scan top 3 headlines on load
+  React.useEffect(() => {
+    if (items.length > 0) {
+      const top3 = items.slice(0, 3);
+      top3.forEach((item, index) => {
+        // Stagger slightly to avoid burst limits
+        setTimeout(() => {
+          handleScan(item.id, item.headline);
+        }, index * 1000);
+      });
+    }
+  }, [items.length]); // Only trigger when items are loaded
 
   if (loading) {
     return (
