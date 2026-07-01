@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Literal
 import os
 
 import httpx
+import joblib
 import numpy as np
+import pandas as pd
 import yfinance as yf
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+import ai_insights
+from signal_engine.calibration import CalibrationTable
+from signal_engine.indicators import build_features
 
 
 PredictionDirection = Literal["UP", "DOWN"]
@@ -97,12 +105,36 @@ load_dotenv()
 FINNHUB_TOKEN = os.getenv("FINNHUB_API_KEY")
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
 
+# Backtested, calibration-validated 1-day direction model (see signal_engine/README.md).
+# SHIP_TO_PRODUCTION is False in signal_engine/registry.py — it does not beat a naive
+# "always predict UP" baseline — so it is served with honest, calibration-capped
+# confidence (typically 45-58%) rather than presented as a strong trading signal.
+# Loaded once at import time; falls back to the old heuristic below if artifacts are
+# missing (e.g. before `python -m signal_engine.train_production_model` has been run).
+_ML_ARTIFACTS_DIR = Path(__file__).parent / "signal_engine" / "artifacts"
+try:
+    _ML_MODEL = joblib.load(_ML_ARTIFACTS_DIR / "model_1day.joblib")
+    _ML_CALIBRATION = CalibrationTable.from_dict(
+        json.loads((_ML_ARTIFACTS_DIR / "calibration_1day.json").read_text())
+    )
+except FileNotFoundError:
+    _ML_MODEL = None
+    _ML_CALIBRATION = None
+
+# Comma-separated list of allowed frontend origins, e.g.
+# "http://localhost:5173,https://your-frontend.onrender.com"
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+
 
 app = FastAPI(title="MarketSentinel AI Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -364,6 +396,86 @@ async def _fetch_finnhub_candles(symbol: str, cfg: RangeConfig) -> tuple[np.ndar
     return closes, volumes, timestamps
 
 
+async def _fetch_daily_ohlcv_for_prediction(symbol: str, lookback_days: int = 400) -> pd.DataFrame | None:
+    """
+    Fetches daily-resolution OHLCV for the ML prediction model, independent of the
+    chart's selected `range`/resolution — the model was trained on daily bars (see
+    signal_engine/README.md), so intraday candles (used for the 1D/5D chart views)
+    would be statistically invalid inputs. Finnhub daily candles first, yfinance
+    fallback, matching the data-source hierarchy used elsewhere in this file. Returns
+    None if fewer than 60 bars are available (not enough for the model's longest
+    warm-up window, SMA/EMA-50), so callers can fall back to the heuristic.
+    """
+    if FINNHUB_TOKEN:
+        now_ts = int(datetime.utcnow().timestamp())
+        from_ts = now_ts - lookback_days * 24 * 60 * 60
+        params = {
+            "symbol": symbol,
+            "resolution": "D",
+            "from": from_ts,
+            "to": now_ts,
+            "token": FINNHUB_TOKEN,
+        }
+        async with httpx.AsyncClient(base_url=FINNHUB_BASE_URL, timeout=10.0) as client:
+            try:
+                resp = await client.get("/stock/candle", params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("s") == "ok":
+                    c = data.get("c", [])
+                    if len(c) >= 60:
+                        idx = pd.to_datetime(data.get("t", []), unit="s")
+                        return pd.DataFrame(
+                            {
+                                "open": data.get("o", []),
+                                "high": data.get("h", []),
+                                "low": data.get("l", []),
+                                "close": c,
+                                "volume": data.get("v", []),
+                            },
+                            index=idx,
+                        ).sort_index()
+            except httpx.HTTPError:
+                pass  # fall through to yfinance
+
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y", interval="1d")
+    except Exception:  # noqa: BLE001 - any yfinance failure means "no ML prediction this time"
+        return None
+
+    if hist.empty or len(hist) < 60:
+        return None
+
+    hist = hist.rename(
+        columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+    )
+    hist.index = pd.to_datetime(hist.index).tz_localize(None)
+    return hist[["open", "high", "low", "close", "volume"]].sort_index()
+
+
+def _ml_prediction(ohlcv: pd.DataFrame | None) -> tuple[PredictionDirection, int] | None:
+    """
+    Returns (direction, confidence) from the persisted, backtested model, where
+    confidence comes from CalibrationTable.confidence_for — i.e. the ACTUAL historical
+    accuracy of predictions this conviction-strength, not a formula. Returns None if the
+    model artifacts aren't loaded or there isn't enough OHLCV history, so callers can
+    fall back to the older heuristic.
+    """
+    if _ML_MODEL is None or _ML_CALIBRATION is None or ohlcv is None:
+        return None
+
+    features = build_features(ohlcv).dropna()
+    if features.empty:
+        return None
+
+    latest = features.iloc[[-1]]
+    proba_up = float(_ML_MODEL.predict_proba(latest)[:, 1][0])
+    direction: PredictionDirection = "UP" if proba_up >= 0.5 else "DOWN"
+    confidence = _ML_CALIBRATION.confidence_for(proba_up)
+    return direction, confidence
+
+
 async def _fetch_finnhub_news(symbol: str) -> list[NewsItem]:
     if not FINNHUB_TOKEN:
         return []
@@ -572,6 +684,7 @@ def _build_insights(
     sentiment_scores: np.ndarray,
     direction: PredictionDirection,
     confidence: int,
+    is_ml_backed: bool = False,
 ) -> Insights:
     if len(closes) == 0:
         return Insights(
@@ -625,10 +738,26 @@ def _build_insights(
         sent_label = "broadly neutral"
 
     dir_word = "upside" if direction == "UP" else "downside"
-    commentary = (
-        f"Models currently lean {dir_word} on {symbol} with {confidence}% confidence, "
-        f"{sent_label} news tone, and an estimated ±{value_at_risk_pct:.2f}% one-day risk band."
-    )
+    if is_ml_backed:
+        # confidence here is a backtested historical-accuracy figure (see
+        # signal_engine/README.md), not a claim about this specific prediction — it is
+        # deliberately capped low (typically 45-58%) because that is what the real
+        # backtest supports. A naive "assume the market goes up" baseline scores ~54-57%
+        # over the same historical window, so this is explicitly framed as a weak signal.
+        commentary = (
+            f"Backtested model leans {dir_word} on {symbol}: {confidence}% historical "
+            f"accuracy for predictions this strong (not a strong edge — a naive "
+            f"'assume uptrend' baseline scores similarly over the same backtest window), "
+            f"{sent_label} news tone, and an estimated ±{value_at_risk_pct:.2f}% one-day risk band."
+        )
+    else:
+        commentary = (
+            f"Insufficient daily history for a calibrated model prediction on {symbol}; "
+            f"falling back to an unvalidated heuristic that leans {dir_word} with "
+            f"{sent_label} news tone and an estimated ±{value_at_risk_pct:.2f}% one-day "
+            f"risk band. Treat this heuristic fallback with more skepticism than a "
+            f"calibrated prediction."
+        )
 
     return Insights(
         nextMove=PredictionSummary(
@@ -656,16 +785,27 @@ async def get_dashboard(
     returns, price_vs_ma, vol_z = _compute_point_features(closes, volumes)
     sentiment_scores = _score_sentiment(returns, price_vs_ma, vol_z)
 
-    direction, global_conf = _prediction_from_series(sentiment_scores)
-    insights = _build_insights(symbol, closes, sentiment_scores, direction, global_conf)
+    ml_ohlcv = await _fetch_daily_ohlcv_for_prediction(symbol)
+    ml_result = _ml_prediction(ml_ohlcv)
+    is_ml_backed = ml_result is not None
+    if ml_result is not None:
+        direction, global_conf = ml_result
+    else:
+        direction, global_conf = _prediction_from_series(sentiment_scores)
+    insights = _build_insights(
+        symbol, closes, sentiment_scores, direction, global_conf, is_ml_backed=is_ml_backed
+    )
 
     points: list[MarketDataPoint] = []
     for close, vol, ts, sent in zip(
         closes, volumes, timestamps, sentiment_scores
     ):
-        # Slightly vary per-point confidence around global confidence.
+        # Slightly vary per-point confidence around global confidence. Bounds are wide
+        # enough to allow the ML path's honestly low confidence (typically 45-58%,
+        # see signal_engine/README.md) through without an artificial floor, while still
+        # capping the heuristic fallback's occasional wide swings.
         jitter = int(min(8, max(-8, (sent * 15))))
-        confidence = int(min(98, max(50, global_conf + jitter)))
+        confidence = int(min(75, max(35, global_conf + jitter)))
 
         points.append(
             MarketDataPoint(
@@ -700,6 +840,48 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
 
 
+def _search_relevance_key(item: dict, query: str) -> tuple:
+    """
+    Ranks Finnhub search results the way a trading platform's search box does.
+
+    US-primary common stock (no exchange suffix, e.g. "AAPL" not "APP.CN") is ranked
+    ahead of foreign-exchange listings REGARDLESS of match quality — a plain-text query
+    almost always means the well-known US ticker/company, and Finnhub's fuzzy symbol
+    matching otherwise lets obscure foreign listings whose SYMBOL happens to start with
+    the query (e.g. "APP.CN", "APP.MX") crowd out well-known companies whose NAME matches
+    (e.g. "Apple Inc", "Applied Materials") but whose symbol doesn't share the prefix.
+    Within that US/foreign split, results are ranked by match quality: exact symbol
+    match, then symbol-starts-with, then name-starts-with, then substring matches.
+    Lower tuples sort first (used directly as a `sorted(..., key=...)` key).
+    """
+    symbol = str(item.get("symbol", "")).upper()
+    description = str(item.get("description", "")).upper()
+    q = query.upper().strip()
+
+    is_us_primary = "." not in symbol
+    is_equity = (item.get("type") or "").upper() in {"COMMON STOCK", "EQUITY"}
+
+    if symbol == q:
+        match_tier = 0
+    elif symbol.startswith(q):
+        match_tier = 1
+    elif description.startswith(q):
+        match_tier = 2
+    elif q in symbol:
+        match_tier = 3
+    elif q in description:
+        match_tier = 4
+    else:
+        match_tier = 5
+
+    return (
+        0 if is_us_primary else 1,
+        match_tier,
+        0 if is_equity else 1,
+        len(symbol),  # shorter symbols first as a final tiebreaker (AAPL over AAPL-derived variants)
+    )
+
+
 @app.get("/api/search", response_model=SymbolSearchResponse)
 async def search_symbols(q: str = Query(..., min_length=1, max_length=64)) -> SymbolSearchResponse:
     if not FINNHUB_TOKEN:
@@ -715,11 +897,23 @@ async def search_symbols(q: str = Query(..., min_length=1, max_length=64)) -> Sy
 
     data = resp.json() or {}
     result = data.get("result", [])
+    valid = [r for r in result if r.get("symbol") and r.get("description")]
 
-    # Prefer equities first to reduce noise.
-    equities = [r for r in result if (r.get("type") or "").upper() in {"COMMON STOCK", "EQUITY"}]
-    others = [r for r in result if r not in equities]
-    ordered = (equities + others)[:10]
+    # Sort first, then dedupe by symbol alone (keeping the first/best-ranked record) —
+    # Finnhub often lists the same ticker multiple times from different data-vendor
+    # records with slightly different description text (e.g. "APPLOVIN CORP-CLASS A" vs
+    # "Applovin Corp"), which a symbol+description dedupe key would miss entirely.
+    ranked = sorted(valid, key=lambda r: _search_relevance_key(r, q))
+    seen_symbols: set[str] = set()
+    deduped = []
+    for r in ranked:
+        symbol = str(r["symbol"]).upper()
+        if symbol in seen_symbols:
+            continue
+        seen_symbols.add(symbol)
+        deduped.append(r)
+
+    ordered = deduped[:15]
 
     return SymbolSearchResponse(
         count=int(data.get("count", len(ordered)) or len(ordered)),
@@ -730,9 +924,87 @@ async def search_symbols(q: str = Query(..., min_length=1, max_length=64)) -> Sy
                 type=r.get("type"),
             )
             for r in ordered
-            if r.get("symbol") and r.get("description")
         ],
     )
+
+
+async def _build_ai_context(symbol: str) -> str:
+    """Gathers the same real data the dashboard already computes (ML prediction,
+    risk, news sentiment) into the compact block ai_insights.py grounds its
+    prompts in — shared by both AI endpoints below so the context-building logic
+    isn't duplicated."""
+    ml_ohlcv = await _fetch_daily_ohlcv_for_prediction(symbol)
+    ml_result = _ml_prediction(ml_ohlcv)
+
+    if ml_result is not None:
+        direction, confidence = ml_result
+        is_ml_backed = True
+        latest_price = float(ml_ohlcv["close"].iloc[-1])
+    else:
+        direction, confidence, is_ml_backed = "UP", 50, False
+        latest_price = 0.0
+
+    news = await _fetch_finnhub_news(symbol)
+    headlines = [n.headline for n in news[:5]]
+    if news:
+        pos = sum(1 for n in news if n.sentiment == "Positive")
+        neg = sum(1 for n in news if n.sentiment == "Negative")
+        avg_sent = (pos - neg) / len(news)
+    else:
+        avg_sent = 0.0
+    sentiment_label = _label_from_score(avg_sent)
+
+    if ml_ohlcv is not None and len(ml_ohlcv) > 10:
+        returns = ml_ohlcv["close"].pct_change().dropna()
+        vol = float(returns.tail(10).std())
+        value_at_risk_pct = round(1.65 * vol * 100.0, 2)
+        volatility_score = min(100.0, vol * 1000.0)
+        risk_level = "Low" if volatility_score < 25 else ("Medium" if volatility_score < 55 else "High")
+    else:
+        value_at_risk_pct = 0.0
+        risk_level = "Medium"
+
+    return ai_insights.build_context_block(
+        symbol=symbol,
+        latest_price=latest_price,
+        direction=direction,
+        confidence=confidence,
+        is_ml_backed=is_ml_backed,
+        risk_level=risk_level,
+        value_at_risk_pct=value_at_risk_pct,
+        sentiment_label=sentiment_label,
+        news_headlines=headlines,
+    )
+
+
+class AIChatRequest(BaseModel):
+    symbol: str
+    question: str
+
+
+@app.get("/api/ai-insights")
+async def get_ai_insights(symbol: str = Query("AAPL", min_length=1, max_length=32)) -> dict:
+    """Detailed AI-generated analysis and strategy considerations, grounded in
+    real dashboard data (see ai_insights.py). Cached per symbol for 10 minutes
+    to respect Gemini's free-tier rate limits — this is user-triggered from the
+    frontend, not polled automatically."""
+    if not ai_insights.is_configured():
+        return {"symbol": symbol, "configured": False, "content": None, "disclaimer": ai_insights.DISCLAIMER}
+
+    context = await _build_ai_context(symbol)
+    content = ai_insights.generate_deep_insight(symbol, context)
+    return {"symbol": symbol, "configured": True, "content": content, "disclaimer": ai_insights.DISCLAIMER}
+
+
+@app.post("/api/ai-chat")
+async def post_ai_chat(body: AIChatRequest) -> dict:
+    """Free-form Q&A grounded in the same real data block as /api/ai-insights."""
+    if not ai_insights.is_configured():
+        return {"configured": False, "answer": None, "disclaimer": ai_insights.DISCLAIMER}
+
+    context = await _build_ai_context(body.symbol)
+    answer = ai_insights.answer_question(body.symbol, context, body.question)
+    return {"configured": True, "answer": answer, "disclaimer": ai_insights.DISCLAIMER}
 
 
 # To run:

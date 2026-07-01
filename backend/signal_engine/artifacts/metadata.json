@@ -1,0 +1,18 @@
+{
+  "horizon_days": 1,
+  "symbols_trained_on": [
+    "AAPL",
+    "AMZN",
+    "GOOGL",
+    "MSFT",
+    "NVDA",
+    "QQQ",
+    "SPY",
+    "TSLA"
+  ],
+  "symbols_failed": [],
+  "n_training_rows": 15680,
+  "backtest_overall_accuracy": 0.5262109135499693,
+  "ship_to_production": false,
+  "note": "SHIP_TO_PRODUCTION is False in signal_engine/registry.py: this model does not beat the naive 'always predict UP' baseline in backtesting. It is served with honest, capped confidence, not as a strong signal. See signal_engine/README.md for the full backtest report."
+}

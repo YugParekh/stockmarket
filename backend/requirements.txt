@@ -5,3 +5,8 @@ pandas
 numpy
 httpx
 python-dotenv
+pandas-ta
+scikit-learn
+pyarrow
+joblib
+google-genai
