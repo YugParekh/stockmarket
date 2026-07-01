@@ -33,27 +33,30 @@ export const Sidebar = ({ active, onSelect }: SidebarProps) => {
             <button
               key={item}
               onClick={() => onSelect(item)}
-              className={`group flex items-center w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`group flex items-center w-full px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${
                 isActive
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-400/60 shadow-neon-cyan"
-                  : "text-slate-300/80 hover:text-cyan-300 hover:bg-cyan-500/10 hover:border-cyan-400/40"
-              } border border-transparent`}
+                  ? "bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-300 border-l-2 border-l-cyan-400 shadow-[4px_0_24px_-12px_rgba(34,211,238,0.3)]"
+                  : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/40"
+              } relative overflow-hidden`}
             >
-              <span
-                className={`mr-3 h-7 w-7 flex items-center justify-center rounded-md text-xs font-semibold tracking-widest ${
+              <div
+                className={`mr-3 h-8 w-8 flex items-center justify-center rounded-lg text-[10px] font-bold transition-all duration-300 ${
                   isActive
-                    ? "bg-cyan-500/20 text-cyan-300"
-                    : "bg-slate-800/80 text-slate-300 group-hover:bg-cyan-500/20 group-hover:text-cyan-300"
+                    ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/40"
+                    : "bg-slate-800/50 text-slate-500 group-hover:bg-slate-700/50 group-hover:text-slate-300"
                 }`}
               >
                 {item
                   .split(" ")
                   .map((word) => word[0])
                   .join("")
-                  .slice(0, 3)
+                  .slice(0, 2)
                   .toUpperCase()}
-              </span>
-              <span>{item}</span>
+              </div>
+              <span className="truncate">{item}</span>
+              {isActive && (
+                <div className="absolute right-2 h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+              )}
             </button>
           );
         })}

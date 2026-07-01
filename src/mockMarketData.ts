@@ -11,6 +11,18 @@ export interface MarketDataPoint {
 
 // Local mock data used only as a fallback when the backend is unavailable.
 export const mockMarketData: MarketDataPoint[] = [
+  { date: "2026-01-20", price: 182.5, sentiment_score: 0.05, volume: 98_000_000, prediction: "UP", confidence: 55 },
+  { date: "2026-01-21", price: 183.1, sentiment_score: 0.08, volume: 101_200_000, prediction: "UP", confidence: 58 },
+  { date: "2026-01-22", price: 184.8, sentiment_score: 0.12, volume: 105_600_000, prediction: "UP", confidence: 62 },
+  { date: "2026-01-23", price: 185.5, sentiment_score: 0.15, volume: 102_400_000, prediction: "UP", confidence: 60 },
+  { date: "2026-01-26", price: 186.2, sentiment_score: 0.10, volume: 108_900_000, prediction: "UP", confidence: 59 },
+  { date: "2026-01-27", price: 185.9, sentiment_score: -0.02, volume: 110_100_000, prediction: "DOWN", confidence: 54 },
+  { date: "2026-01-28", price: 187.4, sentiment_score: 0.18, volume: 115_300_000, prediction: "UP", confidence: 64 },
+  { date: "2026-01-29", price: 186.8, sentiment_score: 0.14, volume: 112_000_000, prediction: "DOWN", confidence: 57 },
+  { date: "2026-01-30", price: 187.9, sentiment_score: 0.21, volume: 118_400_000, prediction: "UP", confidence: 66 },
+  { date: "2026-02-02", price: 188.5, sentiment_score: 0.25, volume: 114_200_000, prediction: "UP", confidence: 68 },
+  { date: "2026-02-03", price: 189.2, sentiment_score: 0.28, volume: 116_700_000, prediction: "UP", confidence: 70 },
+  { date: "2026-02-04", price: 188.8, sentiment_score: 0.22, volume: 113_500_000, prediction: "DOWN", confidence: 63 },
   { date: "2026-02-05", price: 188.2, sentiment_score: 0.18, volume: 112_000_000, prediction: "UP", confidence: 68 },
   { date: "2026-02-06", price: 189.4, sentiment_score: 0.22, volume: 118_200_000, prediction: "UP", confidence: 70 },
   { date: "2026-02-09", price: 191.1, sentiment_score: 0.27, volume: 121_300_000, prediction: "UP", confidence: 72 },
@@ -33,13 +45,14 @@ export const mockMarketData: MarketDataPoint[] = [
   { date: "2026-03-04", price: 205.6, sentiment_score: 0.46, volume: 167_900_000, prediction: "UP", confidence: 84 },
   { date: "2026-03-05", price: 207.1, sentiment_score: 0.39, volume: 162_500_000, prediction: "UP", confidence: 80 },
   { date: "2026-03-06", price: 206.4, sentiment_score: 0.24, volume: 158_300_000, prediction: "DOWN", confidence: 71 },
-  { date: "2026-03-07", price: 208.9, sentiment_score: 0.37, volume: 165_600_000, prediction: "UP", confidence: 82 },
-  { date: "2026-03-08", price: 210.3, sentiment_score: 0.42, volume: 171_200_000, prediction: "UP", confidence: 85 },
-  { date: "2026-03-09", price: 211.7, sentiment_score: 0.35, volume: 168_900_000, prediction: "UP", confidence: 79 },
-  { date: "2026-03-10", price: 210.9, sentiment_score: 0.18, volume: 162_400_000, prediction: "DOWN", confidence: 69 },
-  { date: "2026-03-11", price: 212.2, sentiment_score: 0.25, volume: 166_700_000, prediction: "UP", confidence: 73 },
-  { date: "2026-03-12", price: 214.1, sentiment_score: 0.32, volume: 172_300_000, prediction: "UP", confidence: 77 },
-  { date: "2026-03-13", price: 215.6, sentiment_score: 0.38, volume: 179_100_000, prediction: "UP", confidence: 83 }
+  { date: "2026-03-09", price: 208.9, sentiment_score: 0.37, volume: 165_600_000, prediction: "UP", confidence: 82 },
+  { date: "2026-03-10", price: 210.3, sentiment_score: 0.42, volume: 171_200_000, prediction: "UP", confidence: 85 },
+  { date: "2026-03-11", price: 211.7, sentiment_score: 0.35, volume: 168_900_000, prediction: "UP", confidence: 79 },
+  { date: "2026-03-12", price: 210.9, sentiment_score: 0.18, volume: 162_400_000, prediction: "DOWN", confidence: 69 },
+  { date: "2026-03-13", price: 212.2, sentiment_score: 0.25, volume: 166_700_000, prediction: "UP", confidence: 73 },
+  { date: "2026-03-16", price: 214.1, sentiment_score: 0.32, volume: 172_300_000, prediction: "UP", confidence: 77 },
+  { date: "2026-03-17", price: 215.6, sentiment_score: 0.38, volume: 179_100_000, prediction: "UP", confidence: 83 },
+  { date: "2026-03-18", price: 216.8, sentiment_score: 0.41, volume: 182_400_000, prediction: "UP", confidence: 86 }
 ];
 
 export interface NewsItem {

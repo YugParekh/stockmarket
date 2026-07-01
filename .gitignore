@@ -9,3 +9,4 @@ build/
 .pytest_cache/
 backend/tests/__pycache__/
 backend/signal_engine/data_cache/
+.vercel
