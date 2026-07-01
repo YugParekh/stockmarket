@@ -21,6 +21,7 @@ export const Topbar = ({
   const [results, setResults] = useState<SymbolSearchItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [recentSearches, setRecentSearches] = useState<SymbolSearchItem[]>(() => {
     const saved = localStorage.getItem("recent_searches");
     return saved ? JSON.parse(saved) : [];
@@ -87,10 +88,30 @@ export const Topbar = ({
             onFocus={() => recentSearches.length > 0 && setOpen(true)}
             placeholder="Search symbols…"
             onKeyDown={(e) => {
+              const list = trimmedQuery ? results : recentSearches;
               if (e.key === "Escape") {
                 setOpen(false);
               }
-              // ... arrow keys logic ... (rest of input logic)
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (list.length > 0) {
+                  setOpen(true);
+                  setActiveIndex((i) => Math.min(i + 1, list.length - 1));
+                }
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActiveIndex((i) => Math.max(i - 1, 0));
+              }
+              if (e.key === "Enter") {
+                if (open && list[activeIndex]) {
+                  choose(list[activeIndex]);
+                } else if (trimmedQuery) {
+                  onSymbolChange(trimmedQuery.toUpperCase());
+                  setQuery("");
+                  setOpen(false);
+                }
+              }
             }}
           />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-600 text-[10px] font-mono">
