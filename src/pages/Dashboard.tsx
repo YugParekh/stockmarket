@@ -12,6 +12,22 @@ import { AIInsightsPanel } from "../components/AIInsightsPanel";
 import { type UiRange } from "../api/dashboard";
 import { StockCard } from "../components/StockCard";
 import { exportToCSV } from "../utils/exportCSV";
+import { fetchQuotes, type QuoteItem } from "../api/quotes";
+import { formatCompactNumber } from "../utils/formatters";
+
+// Maps the "glance" card's display symbol/name to the real ticker to quote —
+// S&P 500 and Nasdaq are quoted via their most liquid tracking ETFs (SPY, QQQ)
+// since Finnhub/yfinance quote individual securities, not raw index tickers.
+const GLANCE_SYMBOLS: { quoteSymbol: string; displaySymbol: string; name: string }[] = [
+  { quoteSymbol: "SPY", displaySymbol: "S&P 500", name: "Market Index (SPY)" },
+  { quoteSymbol: "QQQ", displaySymbol: "NASDAQ", name: "Tech Index (QQQ)" },
+  { quoteSymbol: "AAPL", displaySymbol: "AAPL", name: "Apple Inc." },
+  { quoteSymbol: "NVDA", displaySymbol: "NVDA", name: "NVIDIA Corp." },
+  { quoteSymbol: "MSFT", displaySymbol: "MSFT", name: "Microsoft" },
+  { quoteSymbol: "GOOGL", displaySymbol: "GOOGL", name: "Alphabet Inc." },
+  { quoteSymbol: "AMZN", displaySymbol: "AMZN", name: "Amazon.com" },
+  { quoteSymbol: "TSLA", displaySymbol: "TSLA", name: "Tesla, Inc." }
+];
 
 interface DashboardProps {
   symbol: string;
@@ -32,17 +48,52 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
   } = useMarketData(symbol, range);
 
   const [sortBy, setSortBy] = useState<"name" | "price" | "change">("name");
+  const [quotes, setQuotes] = useState<Record<string, QuoteItem>>({});
+  const [quotesLoading, setQuotesLoading] = useState(true);
+  const [quotesError, setQuotesError] = useState(false);
 
-  const topStocks = [
-    { symbol: "S&P 500", name: "Market Index", price: 5123.42, change: 12.5, changePercent: 0.24, volume: "4.1B", isPositive: true },
-    { symbol: "NASDAQ", name: "Tech Index", price: 16384.15, change: -84.2, changePercent: -0.51, volume: "2.8B", isPositive: false },
-    { symbol: "AAPL", name: "Apple Inc.", price: 192.25, change: 2.15, changePercent: 1.13, volume: "52M", isPositive: true },
-    { symbol: "NVDA", name: "NVIDIA Corp.", price: 875.32, change: 15.42, changePercent: 1.79, volume: "84M", isPositive: true },
-    { symbol: "MSFT", name: "Microsoft", price: 415.65, change: 3.21, changePercent: 0.78, volume: "22M", isPositive: true },
-    { symbol: "GOOGL", name: "Alphabet Inc.", price: 154.85, change: -1.45, changePercent: -0.93, volume: "18M", isPositive: false },
-    { symbol: "AMZN", name: "Amazon.com", price: 178.22, change: 0.95, changePercent: 0.54, volume: "31M", isPositive: true },
-    { symbol: "TSLA", name: "Tesla, Inc.", price: 175.45, change: -5.32, changePercent: -2.94, volume: "105M", isPositive: false },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuotes = async () => {
+      try {
+        const items = await fetchQuotes(GLANCE_SYMBOLS.map((g) => g.quoteSymbol));
+        if (cancelled) return;
+        const bySymbol: Record<string, QuoteItem> = {};
+        for (const item of items) bySymbol[item.symbol] = item;
+        setQuotes(bySymbol);
+        setQuotesError(false);
+      } catch {
+        if (!cancelled) setQuotesError(true);
+      } finally {
+        if (!cancelled) setQuotesLoading(false);
+      }
+    };
+
+    loadQuotes();
+    // Quotes are a lightweight "glance" widget, not the main chart — refresh
+    // far less often than the 20s main-data poll to stay conservative on the
+    // free-tier Finnhub/yfinance call budget.
+    const interval = window.setInterval(loadQuotes, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const topStocks = GLANCE_SYMBOLS.map((g) => {
+    const q = quotes[g.quoteSymbol];
+    const isPositive = (q?.changePercent ?? 0) >= 0;
+    return {
+      symbol: g.displaySymbol,
+      name: g.name,
+      price: q?.price ?? 0,
+      change: q?.change ?? 0,
+      changePercent: q?.changePercent ?? 0,
+      volume: q ? formatCompactNumber(q.volume) : "—",
+      isPositive
+    };
+  });
 
   const sortedStocks = [...topStocks].sort((a, b) => {
     if (sortBy === "price") return b.price - a.price;
@@ -132,10 +183,19 @@ export const Dashboard = ({ symbol, range, view = "Dashboard" }: DashboardProps 
               </select>
             </div>
           </div>
+          {quotesError && (
+            <div className="glass-card-soft border border-amber-500/40 text-[11px] text-amber-200 px-3 py-2 mb-3">
+              Couldn't reach the live quotes service — showing the last known values.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {sortedStocks.map((stock) => (
-              <StockCard key={stock.symbol} {...stock} />
-            ))}
+            {quotesLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="glass-card-soft h-32 animate-pulse rounded-2xl" />
+                ))
+              : sortedStocks.map((stock) => (
+                  <StockCard key={stock.symbol} {...stock} />
+                ))}
           </div>
         </section>
       )}
