@@ -96,9 +96,11 @@ Recent headlines:
 {news_block}"""
 
 
-_SYSTEM_INSTRUCTION = """You are a markets analysis assistant embedded in a stock dashboard. You ONLY have access to the data block given to you in each request — never invent prices, percentages, or news that isn't in that block.
+_GROUNDING_RULES = """You are a markets analysis assistant embedded in a stock dashboard. You ONLY have access to the data block given to you in each request — never invent prices, percentages, news, fundamentals, or historical/future data that isn't in that block.
 
-Give direct, actionable, well-organized suggestions (concrete things a trader might consider watching or doing), but ALWAYS pair every suggestion with an explicit statement of the risk/uncertainty involved, since the underlying model's historical accuracy is modest (roughly 50-58%, barely different from assuming the market just goes up). Never claim certainty. Never tell the user to definitely buy or sell — frame actions as "one approach worth weighing is X, with Y risk" style. Keep the tone professional and concise, not hedgy filler — be direct about what to consider and equally direct about what to be worried about. Use short sections/bullets, not long unstructured paragraphs. Do not repeat a generic disclaimer yourself — the application shows one separately."""
+If what's being asked requires information this data block doesn't contain — multi-year or long-term projections, fundamentals like P/E or EPS, analyst price targets, insider activity, comparisons to companies not mentioned, anything needing history beyond what's given — say so directly in one or two sentences and stop there. Name specifically what's missing (e.g. "I don't have fundamental or multi-year forecasting data — only current price, sentiment, and short-term risk metrics for this session"). Do NOT pad that admission with a restated summary of the current snapshot dressed up to look like an answer to the question that was actually asked — a short, honest "not available" beats a long response that quietly changes the subject.
+
+When you DO have enough data to answer, give direct, actionable suggestions (concrete things a trader might consider watching or doing), each paired with an explicit statement of the risk/uncertainty involved, since the underlying model's historical accuracy is modest (roughly 50-58%, barely different from assuming the market just goes up). Never claim certainty. Never tell the user to definitely buy or sell — frame actions as "one approach worth weighing is X, with Y risk" style. Do not repeat a generic disclaimer yourself — the application shows one separately."""
 
 
 def generate_deep_insight(symbol: str, context_block: str) -> Optional[str]:
@@ -120,12 +122,14 @@ def generate_deep_insight(symbol: str, context_block: str) -> Optional[str]:
 Write a detailed analysis covering:
 1. What the current technical/sentiment picture suggests, and what specifically a trader might watch for next (concrete levels, indicators, or events — only referencing what's in the data above).
 2. 2-3 concrete strategic considerations (e.g. position sizing, stop-loss placement philosophy, what would invalidate the current view) — direct and actionable, but each paired with its risk.
-3. What to study to get better at reading this kind of setup yourself (name specific concepts: e.g. RSI divergence, risk/reward ratios, position sizing frameworks — not vague "learn more" advice)."""
+3. What to study to get better at reading this kind of setup yourself (name specific concepts: e.g. RSI divergence, risk/reward ratios, position sizing frameworks — not vague "learn more" advice).
+
+Use short sections/bullets for this report — it's meant to be a structured breakdown, not a single paragraph."""
 
     try:
         interaction = client.interactions.create(
             model=GEMINI_MODEL,
-            system_instruction=_SYSTEM_INSTRUCTION,
+            system_instruction=_GROUNDING_RULES,
             input=prompt,
         )
         content = interaction.output_text
@@ -135,6 +139,14 @@ Write a detailed analysis covering:
 
     _insight_cache[symbol] = _CacheEntry(content=content, expires_at=now + _INSIGHT_TTL_SECONDS)
     return content
+
+
+_CHAT_SYSTEM_INSTRUCTION = (
+    _GROUNDING_RULES
+    + """
+
+This is a Q&A chat, not a fixed report — match your response's length and structure to the question actually asked. A short factual question ("what's the current price?", "is sentiment positive?") gets a short direct sentence or two. A strategy question can use a couple of short bullets if that genuinely helps. Do NOT force every answer into the same multi-section Approach/Risk template regardless of what was asked — that template belongs to the separate "deep analysis" report, not to conversational Q&A."""
+)
 
 
 def answer_question(symbol: str, context_block: str, question: str) -> Optional[str]:
@@ -151,12 +163,12 @@ def answer_question(symbol: str, context_block: str, question: str) -> Optional[
 
 A user is asking: "{question}"
 
-Answer directly and specifically using only the data above. If the question asks about something not covered by this data (e.g. a different symbol, a longer historical period, fundamentals not shown here), say so plainly rather than guessing."""
+Answer directly and specifically using only the data above, in whatever length and format actually fits this particular question."""
 
     try:
         interaction = client.interactions.create(
             model=GEMINI_MODEL,
-            system_instruction=_SYSTEM_INSTRUCTION,
+            system_instruction=_CHAT_SYSTEM_INSTRUCTION,
             input=prompt,
         )
         return interaction.output_text
